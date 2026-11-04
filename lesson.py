@@ -4,8 +4,10 @@ from transport import Builder
 
 class Lesson:
     def __init__(self, problem):
+        problem.validate_balance()
         self.original = problem
-        self.problem = problem.balanced()
+        self.problem = problem
+        self.accepted_potentials = None
         self.builder = Builder(self.problem)
         self.state = None
         self.phase = 'cell'
@@ -16,9 +18,6 @@ class Lesson:
         self.history = []
         self.seen = set()
         self.added = []
-        if self.original != self.problem:
-            side = 'потребитель' if self.problem.dummy_col else 'поставщик'
-            self.history.append(f'Добавлен фиктивный {side} с нулевыми тарифами для баланса.')
         self._complete_initial()
 
     def _complete_initial(self):
@@ -70,6 +69,7 @@ class Lesson:
             if any(type(x) is not int for x in u+v): raise ValueError('Потенциалы должны быть целыми.')
             if any(v[j]-u[i] != p.costs[i][j] for i,j in self.state.basis):
                 raise ValueError('Для каждой базисной клетки должно выполняться v[j] − u[i] = c[i,j]. Проверьте также клетки 0*.')
+            self.accepted_potentials = (tuple(u), tuple(v))
             self.phase = 'optimal'
             return 'Потенциалы верны. Рассчитаны оценки δ = v − u − c. Общий сдвиг потенциалов допустим.'
         if self.phase == 'optimal':
@@ -107,6 +107,7 @@ class Lesson:
             self.seen.add(self.state.basis)
             previous = self.state.cost
             self.state = new
+            self.accepted_potentials = None
             self.phase = 'potentials'
             return f'Итерация {new.iteration}: из базиса вышла {self.cells_text([leaving])}. Стоимость: {previous} → {new.cost}.'
         raise ValueError('Решение уже завершено.')

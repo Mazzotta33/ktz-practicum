@@ -30,6 +30,9 @@ class Problem:
     def n(self): return len(self.demand)
 
     def balanced(self):
+        if self.dummy_row or self.dummy_col:
+            self.validate_balance()
+            return self
         diff = sum(self.supply) - sum(self.demand)
         if diff > 0:
             return Problem(tuple(row + (0,) for row in self.costs), self.supply,
@@ -38,6 +41,25 @@ class Problem:
             return Problem(self.costs + ((0,) * self.n,), self.supply + (-diff,),
                            self.demand, True, self.dummy_col)
         return self
+
+    def validate_balance(self):
+        if self.dummy_row and self.dummy_col:
+            raise ValueError('Нужна только одна фиктивная вершина: строка или столбец.')
+        a = sum(self.supply[:-1] if self.dummy_row else self.supply)
+        b = sum(self.demand[:-1] if self.dummy_col else self.demand)
+        if self.dummy_row:
+            if b <= a:
+                raise ValueError('Фиктивная строка не нужна: проверьте баланс реальных запасов и потребностей.')
+            if self.supply[-1] != b - a:
+                raise ValueError(f'Запас фиктивной строки должен быть {b - a}, указан {self.supply[-1]}.')
+        elif self.dummy_col:
+            if a <= b:
+                raise ValueError('Фиктивный столбец не нужен: проверьте баланс реальных запасов и потребностей.')
+            if self.demand[-1] != a - b:
+                raise ValueError(f'Спрос фиктивного столбца должен быть {a - b}, указан {self.demand[-1]}.')
+        elif a != b:
+            side = 'столбец' if a > b else 'строка'
+            raise ValueError(f'Не добавлена фиктивная вершина ({side}) объёмом {abs(a - b)}.')
 
 
 class Builder:
