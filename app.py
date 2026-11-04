@@ -396,9 +396,10 @@ class App:
             text='Показать новый план →' if phase=='pivot' else 'К потенциалам →' if phase=='basis' else 'Проверить ответ'
             ttk.Button(buttons,text=text,style='Primary.TButton',command=self.check).pack(fill='x')
         else:ttk.Button(buttons,text='Решить другую задачу',style='Primary.TButton',command=self._setup).pack(fill='x')
-        if phase not in ('done','basis','pivot'):ttk.Button(self.question,text='Подсказка',command=self.hint).pack(fill='x',pady=(0,12))
-        self.feedback_label=label(self.question,self.feedback,size=10,color=GREEN if self.feedback_ok else '#b33c41',bg='#edf7f2' if self.feedback_ok else '#fff0f0',wraplength=265,justify='left',padx=10,pady=10)
-        self.feedback_label.pack(fill='x',pady=(8,0))
+        self.feedback_label=label(self.question,'Результат последней проверки\n\n'+self.feedback,size=10,color=GREEN if self.feedback_ok else '#b33c41',bg='#edf7f2' if self.feedback_ok else '#fff0f0',wraplength=265,justify='left',anchor='w',padx=10,pady=10)
+        self.feedback_label.pack(fill='x',pady=(0,12))
+        if phase not in ('done','basis','pivot'):ttk.Button(self.question,text='Подсказка',command=self.hint).pack(fill='x',pady=(0,8))
+        self.hint_label=label(self.question,'',size=10,color='#2454a6',bg='#edf4ff',wraplength=265,justify='left',anchor='w',padx=10,pady=10)
 
     def check(self,answer=None):
         try:
@@ -417,10 +418,12 @@ class App:
 
     def update_feedback(self):
         self.stat_labels[2].configure(text=f'{self.lesson.errors} / {self.lesson.hints}')
-        self.feedback_label.configure(text=self.feedback,fg=GREEN if self.feedback_ok else '#b33c41',bg='#edf7f2' if self.feedback_ok else '#fff0f0')
+        self.feedback_label.configure(text='Результат последней проверки\n\n'+self.feedback,fg=GREEN if self.feedback_ok else '#b33c41',bg='#edf7f2' if self.feedback_ok else '#fff0f0')
 
     def hint(self):
-        self.feedback=self.lesson.hint();self.feedback_ok=True;self.update_feedback()
+        self.hint_label.configure(text='Подсказка\n\n'+self.lesson.hint())
+        self.hint_label.pack(fill='x',pady=(0,12))
+        self.stat_labels[2].configure(text=f'{self.lesson.errors} / {self.lesson.hints}')
 
 
 def main():
