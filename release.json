@@ -1,18 +1,19 @@
 {
   "version": "1.0.0-preview",
-  "date": "2026-11-02",
+  "date": "2026-11-04",
   "platform": "Windows x64",
-  "exe_sha256": "5695dcdc3fd353e3cec29a227bacc8e9c02af626143a7b1c07294915db281290",
+  "exe_sha256": "c60496e43fa6efd883b30bdae08d44e8d16a96b08d818e8a2d14c385784b1a55",
   "source_sha256": {
-    "app.py": "9397a73179a261c16b60d7ab7cbdec6e180fc3b9ca69e785a8cc9f3ac5f09335",
-    "transport.py": "fc0cc3a7025154b460483d00e6e49ac18507d6474e1c9d5a38ae1863ab719353",
-    "lesson.py": "0b4b2926ccc1d52488bd6122ce1ff788b37f2cb2a3bd18a4f7bce30f84745efb",
+    "app.py": "9f3a11e2f5c1234659aebbf0ff54236eebdf717af5758652db88810c0dfa1948",
+    "transport.py": "b9a3a66fbf5075d55ac0e57a63abdaf7a55e64936bb8c7aca58ca560f59d5dc3",
+    "lesson.py": "a87d950670cd255d0df4faa5560418dfc693d8cb0300322ec303cb6e1f78489d",
     "presets.py": "4ab3137e5bed819121193a69735ed995856c6a3443c5732d7a3d3689dbf012cd"
   },
   "checks": {
-    "unittest": 9,
+    "unittest": 10,
     "independent_random_cases": 400,
     "exe_smoke_exit_code": 0,
     "manual_visual_acceptance": false
-  }
+  },
+  "build_kind": "local rebuild after project relocation; GitHub preview asset unchanged"
 }

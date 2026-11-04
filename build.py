@@ -22,7 +22,7 @@ def main():
         '--icon',str(root/'icon.ico'),'--add-data',str(root/'icon.ico')+';.',
         '--distpath',str(root/'dist'),'--workpath',str(root/'.build'),
         '--specpath',str(root),str(root/'app.py')])
-    destination=root.parent/'КТЗ-Практикум.exe'
+    destination=root/'КТЗ-Практикум.exe'
     shutil.copy2(root/'dist'/'KTZ-Practicum.exe',destination)
     print('Built:',destination)
 
