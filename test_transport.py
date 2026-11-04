@@ -6,6 +6,41 @@ from lesson import Lesson
 from presets import PRESETS
 
 class TransportTests(unittest.TestCase):
+    def test_variant3_rebalancing_preserves_strategic_staffing(self):
+        original = PRESETS['Вариант 3 · специалисты']
+        real_suppliers = len(original.supply) - 1
+
+        # Control: the unedited task fully staffs strategic enterprises.
+        baseline = solve(original)
+        for j in (0, 3):
+            self.assertEqual(sum(row[j] for row in baseline.plan[:real_suppliers]),
+                             original.demand[j])
+        self.assertEqual(baseline.cost, 1240)
+
+        # Reproduce App.start: edit the dummy supply, retaining its flag
+        # and tariffs. The lesson must reject it rather than auto-balance.
+        edited = Problem(original.costs, original.supply[:-1] + (20,),
+                         original.demand, original.dummy_row, original.dummy_col)
+        with self.assertRaisesRegex(ValueError, '30'):
+            Lesson(edited)
+        with self.assertRaises(ValueError):
+            edited.balanced()
+        lesson = Lesson(original)
+        result = solve(lesson.problem)
+        result.validate()
+
+        # Count only real graduates: dummy flows are unfilled jobs.
+        # A balanced, mathematically optimal plan must still respect the
+        # original requirement to fully staff enterprises 1 and 4.
+        for j in (0, 3):
+            with self.subTest(enterprise=j + 1):
+                staffed = sum(row[j] for row in result.plan[:real_suppliers])
+                self.assertEqual(
+                    staffed, original.demand[j],
+                    f'Enterprise {j + 1}: {staffed}/{original.demand[j]} real '
+                    f'specialists; cost={result.cost}; '
+                    f'dummy flows={result.plan[real_suppliers:]}')
+
     def test_manual_optima(self):
         for problem, expected in zip(list(PRESETS.values())[:5], [1370,830,1620,1240,830]):
             with self.subTest(expected=expected):
@@ -55,9 +90,11 @@ class TransportTests(unittest.TestCase):
         lesson.check()
         u,v=lesson.state.potentials()
         self.assertTrue(lesson.check(([x+7 for x in u],[x+7 for x in v]))[0])
+        self.assertEqual(lesson.accepted_potentials,
+                         (tuple(x+7 for x in u),tuple(x+7 for x in v)))
 
     def test_full_lesson(self):
-        lesson=Lesson(next(iter(PRESETS.values())))
+        lesson=Lesson(next(iter(PRESETS.values())).balanced())
         steps=0
         while lesson.phase!='done':
             phase=lesson.phase

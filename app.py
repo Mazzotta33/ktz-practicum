@@ -101,7 +101,8 @@ class Matrix(tk.Frame):
                     if original:
                         c.create_text(x+w/2,y+h/2,text=str(cost),font=(FONT,13),fill=INK)
                     else:
-                        c.create_text(x+9,y+12,anchor='w',text=f'c {cost}',font=(FONT,9),fill=MUTED)
+                        c.create_text(x+9,y+12,anchor='w',text='c',font=(FONT,9),fill=MUTED)
+                        c.create_text(x+22,y+12,anchor='w',text=str(cost),font=(FONT,9),fill=BLUE)
                         value=plan[i-1][j-1]
                         shown=(str(value) if value else '0*') if cell in basis else '·'
                         c.create_text(x+w/2,y+37,text=shown,font=(FONT,15,'bold'),fill=INK if cell in basis else '#bdc7d6')
@@ -112,8 +113,8 @@ class Matrix(tk.Frame):
                         if cell in lesson.selected or (lesson.phase in ('amount','cycle') and cell==lesson.entering):
                             c.create_rectangle(x+2,y+2,x+w-2,y+h-2,outline=BLUE,width=3)
                 if text:c.create_text(x+w/2,y+h/2,text=text,font=(FONT,10,'bold'),fill=INK,width=w-6)
-        if state and deltas is not None:
-            u,v=state.potentials()
+        if not original and lesson.accepted_potentials is not None:
+            u,v=lesson.accepted_potentials
             for i,val in enumerate(u):c.create_text(w/2,(i+1)*h+53,text=f'u = {val}',font=(FONT,9),fill=MUTED)
             for j,val in enumerate(v):c.create_text((j+1)*w+w/2,53,text=f'v = {val}',font=(FONT,9),fill=MUTED)
         c.configure(scrollregion=(0,0,(p.n+2)*w,(p.m+2)*h))
@@ -142,7 +143,7 @@ class App:
         style.configure('TEntry',padding=7,fieldbackground='white',bordercolor=LINE)
         style.configure('TCombobox',padding=7,fieldbackground='white')
         style.configure('TNotebook',background=BG,borderwidth=0)
-        style.configure('TNotebook.Tab',padding=(16,10),background=BG)
+        style.configure('TNotebook.Tab',padding=(8,10),background=BG,font=(FONT,10))
         style.map('TNotebook.Tab',background=[('selected','white')],foreground=[('selected',BLUE)])
         self.sidebar=tk.Frame(root,bg=NAVY,width=220)
         self.sidebar.pack(side='left',fill='y');self.sidebar.pack_propagate(False)
@@ -174,13 +175,18 @@ class App:
         self._setup()
 
     def _confirm_reset(self):
-        dialog=tk.Toplevel(self.root);dialog.title('Новая задача');dialog.transient(self.root);dialog.grab_set()
+        dialog=tk.Toplevel(self.root);dialog.withdraw();dialog.title('Новая задача');dialog.transient(self.root)
         dialog.configure(bg='white');dialog.resizable(False,False)
         label(dialog,'Начать новую задачу?',size=16,bold=True).pack(padx=28,pady=(25,12))
         label(dialog,'Текущий учебный сеанс будет завершён.\nИсходные файлы приложения не изменяются.',justify='left').pack(padx=28,pady=(0,20))
         buttons=tk.Frame(dialog,bg='white');buttons.pack(padx=24,pady=(0,24))
         ttk.Button(buttons,text='Продолжить решение',command=dialog.destroy).pack(side='left',padx=5)
         ttk.Button(buttons,text='Новая задача',style='Primary.TButton',command=lambda:(dialog.destroy(),self._setup())).pack(side='left',padx=5)
+        dialog.update_idletasks()
+        x=self.root.winfo_rootx()+(self.root.winfo_width()-dialog.winfo_reqwidth())//2
+        y=self.root.winfo_rooty()+(self.root.winfo_height()-dialog.winfo_reqheight())//2
+        dialog.geometry(f'{x:+d}{y:+d}')
+        dialog.deiconify();dialog.grab_set()
 
     def _setup(self):
         self.lesson=None;self.clear();self.activate_nav(0);self.new_button.pack_forget()
@@ -194,20 +200,21 @@ class App:
         self.rows=ttk.Spinbox(bar,from_=1,to=30,width=3);self.rows.set('4');self.rows.grid(row=0,column=3,padx=(0,10))
         label(bar,'Столбцы').grid(row=0,column=4,padx=(0,5))
         self.cols=ttk.Spinbox(bar,from_=1,to=30,width=3);self.cols.set('3');self.cols.grid(row=0,column=5,padx=(0,8))
-        ttk.Button(bar,text='Создать',command=self.create_empty).grid(row=0,column=6)
+        ttk.Button(bar,text='Создать таблицу',command=self.create_empty).grid(row=0,column=6)
         self.editor=ScrollArea(self.body);self.editor.pack(fill='both',expand=True)
         self.setup_note=label(self.body,'',bg=BG,color=MUTED,anchor='w',justify='left',wraplength=890)
         self.setup_note.pack(fill='x',pady=12)
         footer=tk.Frame(self.body,bg=BG);footer.pack(fill='x')
-        label(footer,'Целые числа ≥ 0  ·  До 30 × 30  ·  Работа без интернета',size=10,color=MUTED,bg=BG).pack(side='left')
-        ttk.Button(footer,text='Начать пошаговое решение  →',style='Primary.TButton',command=self.start).pack(side='right')
+        ttk.Button(footer,text='Проверить баланс',command=self.check_balance).pack(side='left')
+        self.dummy_button=ttk.Button(footer,text='Добавить фиктивную вершину',command=self.add_dummy)
+        ttk.Button(footer,text='Приступить к решению →',style='Primary.TButton',command=self.start).pack(side='right')
         self.load_preset()
 
     def load_preset(self):
         p=PRESETS[self.preset.get()]
         self.rows.set(str(p.m));self.cols.set(str(p.n))
         self.edit_problem(p)
-        note='Если запасы и спрос различаются, программа явно добавит фиктивную строку или столбец с нулевыми тарифами.'
+        note='Проверьте баланс. При необходимости добавьте фиктивную строку или столбец и заполните её объём и тарифы.'
         if 'Вариант 3' in self.preset.get():
             note='Последняя строка — фиктивный поставщик на 30. Тариф 100 штрафует нехватку у предприятий 1 и 4, как в методичке; это не абсолютный запрет маршрута.'
         self.setup_note.configure(text=note,fg=MUTED)
@@ -221,6 +228,7 @@ class App:
         except ValueError:self.setup_note.configure(text='Размерность: целые числа от 1 до 30.',fg='#b33c41')
 
     def edit_problem(self,p):
+        self.dummy_button.pack_forget()
         for widget in self.editor.inner.winfo_children():widget.destroy()
         self.edit_shape=p.m,p.n;self.edit_source=p
         frame=self.editor.inner
@@ -238,20 +246,68 @@ class App:
         label(frame,'Спрос bⱼ',bold=True,color=GREEN).grid(row=p.m+1,column=0,padx=14,pady=12)
         self.demand_entries=[entry(p.demand[j],p.m+1,j+1,True) for j in range(p.n)]
 
+    def read_problem(self):
+        costs=tuple(tuple(int(e.get().strip()) for e in row) for row in self.cost_entries)
+        a=tuple(int(e.get().strip()) for e in self.supply_entries)
+        b=tuple(int(e.get().strip()) for e in self.demand_entries)
+        if any(abs(x)>10**12 for x in (*a,*b,*(x for row in costs for x in row))):
+            raise ValueError('Максимальное значение в интерфейсе — 1 000 000 000 000.')
+        return Problem(costs,a,b,self.edit_source.dummy_row,self.edit_source.dummy_col)
+
+    def setup_error(self,error):
+        message=str(error)
+        if 'invalid literal' in message:
+            message='Заполните все ячейки целыми неотрицательными числами.'
+        self.setup_note.configure(text=message,fg='#b33c41')
+
+    def check_balance(self):
+        self.dummy_button.pack_forget()
+        try:
+            p=self.read_problem()
+            if not (p.dummy_row or p.dummy_col) and sum(p.supply)!=sum(p.demand):
+                side='столбец' if sum(p.supply)>sum(p.demand) else 'строку'
+                self.dummy_button.configure(text=f'Добавить фиктивный {side}' if side=='столбец' else 'Добавить фиктивную строку')
+                self.dummy_button.pack(side='left',padx=8)
+            self.validate_editor(p)
+            self.setup_note.configure(text='Баланс и тарифы фиктивной вершины верны. Можно приступить к решению.',fg=GREEN)
+        except ValueError as error:self.setup_error(error)
+
+    def add_dummy(self):
+        try:
+            p=self.read_problem()
+            if p.dummy_row or p.dummy_col:
+                raise ValueError('Фиктивная вершина уже добавлена. Исправьте её объём и тарифы.')
+            diff=sum(p.supply)-sum(p.demand)
+            if not diff:raise ValueError('Задача уже сбалансирована; фиктивная вершина не нужна.')
+            if diff>0:
+                p=Problem(tuple(row+(0,) for row in p.costs),p.supply,p.demand+(0,),dummy_col=True)
+            else:
+                p=Problem(p.costs+((0,)*p.n,),p.supply+(0,),p.demand,dummy_row=True)
+            self.edit_problem(p)
+            target=self.demand_entries[-1] if diff>0 else self.supply_entries[-1]
+            target.delete(0,'end');target.focus_set()
+            self.setup_note.configure(text=f'Введите объём фиктивной вершины ({abs(diff)}) и проверьте тарифы. Затем нажмите «Проверить баланс».',fg=MUTED)
+        except ValueError as error:self.setup_error(error)
+
+    def validate_editor(self,p):
+        p.validate_balance()
+        if p.dummy_row:
+            expected=self.edit_source.costs[-1]
+            if p.costs[-1]!=expected:
+                raise ValueError(f'Тарифы фиктивной строки должны быть {expected}; сохраните штрафы по условию задачи.')
+        if p.dummy_col:
+            expected=tuple(row[-1] for row in self.edit_source.costs)
+            if tuple(row[-1] for row in p.costs)!=expected:
+                raise ValueError(f'Тарифы фиктивного столбца должны быть {expected}.')
+
     def start(self):
         try:
-            costs=tuple(tuple(int(e.get().strip()) for e in row) for row in self.cost_entries)
-            a=tuple(int(e.get().strip()) for e in self.supply_entries)
-            b=tuple(int(e.get().strip()) for e in self.demand_entries)
-            if any(abs(x)>10**12 for x in (*a,*b,*(x for row in costs for x in row))):
-                raise ValueError('Максимальное значение в интерфейсе — 1 000 000 000 000.')
-            p=Problem(costs,a,b,self.edit_source.dummy_row,self.edit_source.dummy_col)
+            p=self.read_problem()
+            self.validate_editor(p)
             self.lesson=Lesson(p)
         except ValueError as error:
-            message=str(error)
-            if 'invalid literal' in message:message='Заполните все ячейки целыми неотрицательными числами. Дроби и текст не принимаются.'
-            self.setup_note.configure(text=message,fg='#b33c41');return
-        self.feedback='Условия приняты. '+('Добавлена фиктивная вершина с нулевыми тарифами.' if p!=self.lesson.problem else 'Задача сбалансирована.')
+            self.setup_error(error);return
+        self.feedback='Условия приняты. Баланс проверен.'
         self.feedback_ok=True
         self.show_lesson()
 
@@ -271,7 +327,7 @@ class App:
         gridtab=tk.Frame(self.notebook,bg='white');originaltab=tk.Frame(self.notebook,bg='white');historytab=tk.Frame(self.notebook,bg='white')
         self.notebook.add(gridtab,text='Рабочая таблица');self.notebook.add(originaltab,text='Исходные данные');self.notebook.add(historytab,text='Журнал')
         self.matrix=Matrix(gridtab,self.select);self.matrix.pack(fill='both',expand=True,padx=12,pady=12)
-        label(gridtab,'c — тариф    ·    крупное число — объём    ·    0* — нулевая базисная клетка\nδ > 0 — возможность улучшения; Ф — фиктивная вершина',size=9,color=MUTED,justify='left',anchor='w').pack(fill='x',padx=14,pady=(0,13))
+        label(gridtab,'Синее число — тариф c    ·    тёмное число — объём    ·    0* — нулевая базисная клетка\nδᵢⱼ = vⱼ − uᵢ − cᵢⱼ; δ > 0 — возможность улучшения; Ф — фиктивная вершина',size=9,color=MUTED,justify='left',anchor='w').pack(fill='x',padx=14,pady=(0,13))
         self.original_matrix=Matrix(originaltab,lambda cell:None);self.original_matrix.pack(fill='both',expand=True,padx=12,pady=12)
         self.log=tk.Text(historytab,bg='white',fg=INK,font=(FONT,11),wrap='word',relief='flat',padx=15,pady=15)
         logbar=ttk.Scrollbar(historytab,command=self.log.yview);self.log.configure(yscrollcommand=logbar.set)
@@ -376,6 +432,9 @@ def main():
     app=App(root)
     if '--smoke-test' in sys.argv:
         root.update_idletasks()
+        app.check_balance()
+        app.add_dummy()
+        app.demand_entries[-1].insert(0,'90')
         app.start()
         root.update_idletasks()
         assert app.lesson is not None
