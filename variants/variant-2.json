@@ -1,0 +1,7 @@
+{
+  "costs": [[12, 15, 11, 10], [13, 10, 12, 14]],
+  "supply": [85, 105],
+  "demand": [40, 55, 30, 25],
+  "dummy_row": false,
+  "dummy_col": false
+}
